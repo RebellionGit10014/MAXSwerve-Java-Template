@@ -20,8 +20,10 @@ import frc.robot.Constants.DriveConstants;
 import frc.robot.Constants.OIConstants;
 import frc.robot.subsystems.DriveSubsystem;
 import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.InstantCommand;
 import edu.wpi.first.wpilibj2.command.RunCommand;
 import edu.wpi.first.wpilibj2.command.SwerveControllerCommand;
+import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.button.JoystickButton;
 import java.util.List;
 
@@ -34,44 +36,55 @@ import java.util.List;
 public class RobotContainer {
   // The robot's subsystems
   private final DriveSubsystem m_robotDrive = new DriveSubsystem();
+  private boolean m_fieldOriented = false;
+  
+    // The driver's controller
+    CommandXboxController m_driverController = new CommandXboxController(OIConstants.kDriverControllerPort);
+  
+    /**
+     * The container for the robot. Contains subsystems, OI devices, and commands.
+     */
+    public RobotContainer() {
+      // Configure the button bindings
+      configureButtonBindings();
+  
+      // Configure default commands
+      m_robotDrive.setDefaultCommand(
+          // The left stick controls translation of the robot.
+          // Turning is controlled by the X axis of the right stick.
+          new RunCommand(
+              () -> m_robotDrive.drive(
+                  -Math.pow(
+                      MathUtil.applyDeadband(m_driverController.getLeftY(), OIConstants.kDriveDeadband)
+                  , 2)  * Math.signum(m_driverController.getLeftY()),
+                  -Math.pow(
+                      MathUtil.applyDeadband(m_driverController.getLeftX(), OIConstants.kDriveDeadband)
+                  , 2)  * Math.signum(m_driverController.getLeftX()),
+                  -Math.pow(
+                      MathUtil.applyDeadband(m_driverController.getRightX(), OIConstants.kDriveDeadband)
+                  , 2)  * Math.signum(m_driverController.getRightX()),
+                  () -> m_fieldOriented),
+              m_robotDrive));
+    }
+  
+    /**
+     * Use this method to define your button->command mappings. Buttons can be
+     * created by
+     * instantiating a {@link edu.wpi.first.wpilibj.GenericHID} or one of its
+     * subclasses ({@link
+     * edu.wpi.first.wpilibj.Joystick} or {@link XboxController}), and then calling
+     * passing it to a
+     * {@link JoystickButton}.
+     */
+    private void configureButtonBindings() {
+      m_driverController.a()
+          .whileTrue(new InstantCommand(()-> m_fieldOriented = !m_fieldOriented));
 
-  // The driver's controller
-  XboxController m_driverController = new XboxController(OIConstants.kDriverControllerPort);
-
-  /**
-   * The container for the robot. Contains subsystems, OI devices, and commands.
-   */
-  public RobotContainer() {
-    // Configure the button bindings
-    configureButtonBindings();
-
-    // Configure default commands
-    m_robotDrive.setDefaultCommand(
-        // The left stick controls translation of the robot.
-        // Turning is controlled by the X axis of the right stick.
-        new RunCommand(
-            () -> m_robotDrive.drive(
-                -MathUtil.applyDeadband(m_driverController.getLeftY(), OIConstants.kDriveDeadband),
-                -MathUtil.applyDeadband(m_driverController.getLeftX(), OIConstants.kDriveDeadband),
-                -MathUtil.applyDeadband(m_driverController.getRightX(), OIConstants.kDriveDeadband),
-                true),
-            m_robotDrive));
-  }
-
-  /**
-   * Use this method to define your button->command mappings. Buttons can be
-   * created by
-   * instantiating a {@link edu.wpi.first.wpilibj.GenericHID} or one of its
-   * subclasses ({@link
-   * edu.wpi.first.wpilibj.Joystick} or {@link XboxController}), and then calling
-   * passing it to a
-   * {@link JoystickButton}.
-   */
-  private void configureButtonBindings() {
-    new JoystickButton(m_driverController, Button.kR1.value)
+    m_driverController.b()
         .whileTrue(new RunCommand(
-            () -> m_robotDrive.setX(),
+            () -> m_robotDrive.zeroHeading(),
             m_robotDrive));
+
   }
 
   /**
@@ -117,6 +130,6 @@ public class RobotContainer {
     m_robotDrive.resetOdometry(exampleTrajectory.getInitialPose());
 
     // Run path following command, then stop at the end.
-    return swerveControllerCommand.andThen(() -> m_robotDrive.drive(0, 0, 0, false));
+    return swerveControllerCommand.andThen(() -> m_robotDrive.drive(0, 0, 0, () -> false));
   }
 }
